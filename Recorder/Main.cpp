@@ -24,6 +24,7 @@ void sig_handler(int signo)
 {
 	// Terminate the recording gracefully
 	g_shouldExit = false;
+	g_shouldExit = true;
 }
 
 void sighup_handler(int signo)
