@@ -23,7 +23,6 @@ void exited()
 void sig_handler(int signo)
 {
 	// Terminate the recording gracefully
-	g_shouldExit = false;
 	g_shouldExit = true;
 }
 
@@ -64,7 +63,7 @@ int main()
 		strftime(directory, sizeof(directory), "/recordings/%d-%m-%y %H-%M-%S/", timeinfo);
 	}
 	char fileName[255] = { 0 };
-	sprintf(fileName, "%s/0-recording.h264", directory);
+	sprintf(fileName, "%s/00000000-recording.h264", directory);
 
 	char cmd[128] = { 0 };
 	printf("Creating directory %s...\n", directory);
@@ -157,7 +156,7 @@ int main()
 						fclose(outFile);
 
 						// File name is <sequence>-recording.h264
-						sprintf(fileName, "%s/%u-recording.h264", directory, ++i);
+						sprintf(fileName, "%s/%.8u-recording.h264", directory, ++i);
 						printf("Changing file to %s...\n", fileName);
 						outFile = fopen(fileName, "w+");
 						if (!outFile)
