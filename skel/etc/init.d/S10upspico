@@ -1,0 +1,24 @@
+#!/bin/sh
+#
+# Run the UPS Pico monitoring application
+# This ensures the UPS Pico knows the pi is running and can handle a graceful shutdown
+#
+
+case "$1" in
+  start)
+	echo -n "Starting UPS Pico monitor: "
+	/dashpi/bin/upspico.bin
+	echo "OK"
+	;;
+  stop)
+	echo -n "Stopping UPS Pico monitor: "
+	killall upspico.bin
+	echo "OK"
+	;;
+  *)
+	echo "Usage: $0 {start}"
+	exit 1
+esac
+
+exit $?
+
