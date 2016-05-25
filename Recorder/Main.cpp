@@ -10,13 +10,30 @@
 #include "../libs/OMXHelper/OMXVideoEncoder.h"
 #include "../libs/OMXHelper/OMXNull.h"
 
+static bool g_shouldExit = false;
 
+void exited()
+{
+	printf("Done recording...\n");
+	OMX_Deinit();
 
+	bcm_host_deinit();
 }
+
+void sig_handler(int signo)
+{
+	// Terminate the recording gracefully
+	g_shouldExit = false;
+}
+
+void sighup_handler(int signo)
+{
+	// Flush to disk on HUP
 }
 
 int main()
 {
+	atexit(exited);
 	bcm_host_init();
 
 	OMX_ERRORTYPE omxerr;
@@ -29,27 +46,48 @@ int main()
 	else
 		printf("OK!\n");
 
-	printf("Hello Pi!\n");
+	signal(SIGTERM, sig_handler);
+	signal(SIGINT, sig_handler);
+	signal(SIGHUP, sighup_handler);
 
-	OMXClock* clock = new OMXClock();
-	clock->Init();
+	printf("Pi Recorder - Version 1\n");
+	printf("\tCreated by Craig Richards\n");
 
-	clock->StateIdle();
-	clock->Stop();
+	char directory[255] = { 0 };
+	time_t startTime;
+	{
+		struct tm* timeinfo;
+		time(&startTime);
+		timeinfo = localtime(&startTime);
+
+		strftime(directory, sizeof(directory), "/recordings/%d-%m-%y %H-%M-%S/", timeinfo);
+	}
+	char fileName[255] = { 0 };
+	sprintf(fileName, "%s/0-recording.h264", directory);
+
+	char cmd[128] = { 0 };
+	printf("Creating directory %s...\n", directory);
+	sprintf(cmd, "mkdir -p \"%s\"", directory);
+	system(cmd);
+
+	FILE* outFile = fopen(fileName, "w+");
+	if (!outFile)
+	{
+		printf("Failed to open initial file. Uber fail...\n");
+		return 1;
+	}
 
 	OMXCamera* camera = new OMXCamera();
-	camera->Open(clock);
+	camera->Open(nullptr);
 
-
-	camera->SetFrameInfo(1280, 720, 25);
+	camera->SetFrameInfo(1920, 1080, 25);
 	camera->SetRotation(180);
 
 	OMXVideoEncoder* encoder = new OMXVideoEncoder();
 	encoder->Open();
 
-
-	encoder->SetFrameInfo(1280, 720, 25, 17000000);
-	encoder->SetBitrate(17000000);
+	encoder->SetFrameInfo(1920, 1080, 25, 25000000);
+	encoder->SetBitrate(25000000);
 	encoder->SetOutputFormat(OMX_VIDEO_CodingAVC);
 	encoder->SetAVCProfile(OMX_VIDEO_AVCProfileHigh);
 
@@ -61,26 +99,9 @@ int main()
 	// Allocate the buffer AFTER setting up the tunnel else bad things ahppen
 	encoder->AllocateBuffers();
 	
-	clock->Reset(true, false);
-	clock->StateExecute();
-	//clock->Start();
-
 	encoder->Execute();
 	camera->Execute();
 	camera->EnableCapture(true);
-
-	
-
-
-	char fileName[255] = { 0 };
-	time_t startTime = time(0);
-	sprintf(fileName, "/recordings/%u/recording.%u.h264", startTime, startTime);
-	
-	char cmd[128] = { 0 };
-	sprintf(cmd, "mkdir -p /recordings/%u/", startTime);
-	system(cmd);
-
-	FILE* outFile = fopen(fileName, "w+");
 
 	OMX_BUFFERHEADERTYPE* buffer = nullptr;
 
@@ -91,11 +112,24 @@ int main()
 	char headerBytes[29] = { 0 };
 
 	unsigned int bufferLen = 0;
-	while (i < 10)
+	bool bChangeFile = false;
+	time(&startTime);
+
+	while (true)
 	{
 		buffer = encodingComponent->GetOutputBuffer();
 		if (buffer)
 		{
+			if (g_shouldExit)
+			{
+				// Wait for a keyframe before exiting
+				if (buffer->nFlags & OMX_BUFFERFLAG_SYNCFRAME)
+				{
+					printf("Exit was requested and keyframe reached. Exiting main loop...\n");
+					break;
+				}
+			}
+
 			if (buffer->nFilledLen)
 			{
 				fwrite(buffer->pBuffer + buffer->nOffset, 1, buffer->nFilledLen, outFile);
@@ -110,26 +144,31 @@ int main()
 				}
 				bufferLen += buffer->nFilledLen;
 
-				// 10MB
-				if (bufferLen > 10485760)
+				// 25MB
+				// Change file every 25MB at the keyframe
+				if (bufferLen > 26214400)
+					bChangeFile = true;
+
+				if (bChangeFile)
 				{
-					fclose(outFile);
+					if (buffer->nFlags & OMX_BUFFERFLAG_SYNCFRAME)
+					{
+						fclose(outFile);
 
-					sprintf(fileName, "/recordings/%u/recording.%u.h264", startTime, time(0));
-					printf("Changing file to %s...\n", fileName);
-					outFile = fopen(fileName, "w+");
-					if (!outFile)
-						break;
+						// File name is <sequence>-recording.h264
+						sprintf(fileName, "%s/%u-recording.h264", directory, ++i);
+						printf("Changing file to %s...\n", fileName);
+						outFile = fopen(fileName, "w+");
+						if (!outFile)
+							break;
 
-					// Write the headers to the file
-					fwrite(headerBytes, 1, headerByteCount, outFile);
+						// Write the headers to the file
+						fwrite(headerBytes, 1, headerByteCount, outFile);
 
-					bufferLen = 0;
-
-					++i;
+						bufferLen = 0;
+						bChangeFile = false;
+					}
 				}
-				/*if (buffer->nFilledLen)
-					printf("Got buffer!\n");*/
 			}
 
 			OMX_ERRORTYPE omxErr = encodingComponent->FillThisBuffer(buffer);
@@ -141,9 +180,12 @@ int main()
 		usleep(1000);		
 	}
 
+	fclose(outFile);
+
+	printf("Recorded %u seconds of video\n", time(0) - startTime);
 	// Create the file list
 	// Place the file list in the same dir as the recordings so we can pass that to ffmpeg
-	sprintf(cmd, "(for f in /recordings/%u/*.h264; do echo \"file '$f'\"; done) > /recordings/%u/filelist.txt", startTime, startTime);
+	sprintf(cmd, "(for f in \"%s\"*.h264; do echo \"file '$f'\"; done) > \"%s/filelist.txt\"", directory, directory);
 	system(cmd);
 
 	/*system("ffmpeg -f concat -safe 0 -i /tmp/filelist.txt -vcodec copy recording.mkv");
@@ -152,12 +194,6 @@ int main()
 	camera->StopCaptureTunnel();
 	delete camera;
 	delete encoder;
-	
-	delete clock;
 
-	fclose(outFile);
-
-	OMX_Deinit();
-	bcm_host_deinit();
 	return 0;
 }
