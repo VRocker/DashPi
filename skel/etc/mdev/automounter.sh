@@ -4,6 +4,9 @@ destdir=/recordings
 
 my_umount()
 {
+	# Stop the recording process when unmounting
+	killall recorder.bin
+
         umount -f "${destdir}"
 }
 
@@ -13,6 +16,9 @@ my_mount()
                 # failed to mount
                 exit 1
         fi
+
+	# Fire up the recorder when a USB stick is inserted
+	/dashpi/bin/recorder.bin &
 }
 
 case "${ACTION}" in
