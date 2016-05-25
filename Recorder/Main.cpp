@@ -120,16 +120,6 @@ int main()
 		buffer = encodingComponent->GetOutputBuffer();
 		if (buffer)
 		{
-			if (g_shouldExit)
-			{
-				// Wait for a keyframe before exiting
-				if (buffer->nFlags & OMX_BUFFERFLAG_SYNCFRAME)
-				{
-					printf("Exit was requested and keyframe reached. Exiting main loop...\n");
-					break;
-				}
-			}
-
 			if (buffer->nFilledLen)
 			{
 				fwrite(buffer->pBuffer + buffer->nOffset, 1, buffer->nFilledLen, outFile);
@@ -170,6 +160,16 @@ int main()
 					}
 				}
 			}
+			
+			if (g_shouldExit)
+			{
+				// Wait for a keyframe before exiting
+				if (buffer->nFlags & OMX_BUFFERFLAG_SYNCFRAME)
+				{
+					printf("Exit was requested and keyframe reached. Exiting main loop...\n");
+					break;
+				}
+			}
 
 			OMX_ERRORTYPE omxErr = encodingComponent->FillThisBuffer(buffer);
 			if (omxErr == OMX_ErrorNone)
@@ -177,12 +177,26 @@ int main()
 				//printf("Fill request done.\n");
 			}
 		}
+		/*else
+		{
+			if (g_shouldExit)
+			{
+				printf("Buffer no longer has data. Time to exit...\n");
+				break;
+			}
+		}*/
 		usleep(1000);		
 	}
 
+	// Disable capture on exit
+	camera->EnableCapture(false);
+	camera->StopPreviewTunnel();
+	camera->StopCaptureTunnel();
+
 	fclose(outFile);
 
-	printf("Recorded %u seconds of video\n", time(0) - startTime);
+	sprintf( cmd, "echo \"%u seconds\n\" > \"%s/length.txt\"", time(0) - startTime, directory);
+	system(cmd);
 	// Create the file list
 	// Place the file list in the same dir as the recordings so we can pass that to ffmpeg
 	sprintf(cmd, "(for f in \"%s\"*.h264; do echo \"file '$f'\"; done) > \"%s/filelist.txt\"", directory, directory);
@@ -190,8 +204,7 @@ int main()
 
 	/*system("ffmpeg -f concat -safe 0 -i /tmp/filelist.txt -vcodec copy recording.mkv");
 	system("rm /tmp/filelist.txt");*/
-
-	camera->StopCaptureTunnel();
+	
 	delete camera;
 	delete encoder;
 
