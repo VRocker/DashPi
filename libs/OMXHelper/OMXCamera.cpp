@@ -45,12 +45,6 @@ OMXCamera::~OMXCamera()
 
 bool OMXCamera::Open(OMXClock* clock)
 {
-	if (!clock)
-		return false;
-
-	if (!clock->GetComponent())
-		return false;
-
 	m_omxCamera = new OMXCoreComponent();
 
 	if (!m_omxCamera->Initialise("OMX.broadcom.camera", OMX_IndexParamVideoInit))
