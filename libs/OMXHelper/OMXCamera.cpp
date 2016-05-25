@@ -201,6 +201,16 @@ bool OMXCamera::SetupCaptureTunnel(OMXCoreComponent * component, OMX_U32 dstPort
 	return true;
 }
 
+void OMXCamera::StopPreviewTunnel()
+{
+	if (m_omxTunnelPreview)
+	{
+		m_omxTunnelPreview->Deestablish();
+		delete m_omxTunnelPreview;
+		m_omxTunnelPreview = nullptr;
+	}
+}
+
 void OMXCamera::StopCaptureTunnel()
 {
 	if (m_omxTunnelCapture)

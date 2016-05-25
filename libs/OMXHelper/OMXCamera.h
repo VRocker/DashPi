@@ -17,6 +17,7 @@ public:
 
 	bool SetupPreviewTunnel(OMXCoreComponent* component, OMX_U32 dstPort);
 	bool SetupCaptureTunnel(OMXCoreComponent* component, OMX_U32 dstPort);
+	void StopPreviewTunnel();
 	void StopCaptureTunnel();
 
 	void Execute();
