@@ -1,10 +1,14 @@
-SUBDIRS = 
+SUBDIRS = libs/OMXHelper Recorder
 
 export BUILDROOTDIR = $(CURDIR)/buildroot
 export SKELDIR = 	$(CURDIR)/skel
 export OUTPUTDIR =	$(SKELDIR)/dashpi
 export ROOTDIR = 	$(BUILDROOTDIR)/output/target
 export IMAGEDIR =	$(BUILDROOTDIR)/output/images
+
+export BUILDCC =        $(BUILDROOTDIR)/output/host/usr/bin/arm-linux-gcc
+export BUILDCXX =       $(BUILDROOTDIR)/output/host/usr/bin/arm-linux-g++
+export BUILDAR =        $(BUILDROOTDIR)/output/host/usr/bin/arm-linux-ar
 
 default: all
 
