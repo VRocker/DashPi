@@ -144,9 +144,9 @@ int main()
 				}
 				bufferLen += buffer->nFilledLen;
 
-				// 25MB
-				// Change file every 25MB at the keyframe
-				if (bufferLen > 26214400)
+				// 50MB
+				// Change file every 50MB at the keyframe
+				if (bufferLen > 52428800)
 					bChangeFile = true;
 
 				if (bChangeFile)
