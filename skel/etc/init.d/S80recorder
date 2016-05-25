@@ -1,0 +1,23 @@
+#!/bin/sh
+#
+# Runs the camera recorder
+#
+
+case "$1" in
+  start)
+	echo -n "Starting camera recorder: "
+	/dashpi/bin/recorder.bin &
+	echo "OK"
+	;;
+  stop)
+	echo -n "Stopping camera recorder: "
+	killall recorder.bin
+	echo "OK"
+	;;
+  *)
+	echo "Usage: $0 {start|stop}"
+	exit 1
+esac
+
+exit $?
+
