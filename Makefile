@@ -1,4 +1,4 @@
-SUBDIRS = libs/OMXHelper Recorder
+SUBDIRS = libs/OMXHelper Recorder UPSPico
 
 export BUILDROOTDIR = $(CURDIR)/buildroot
 export SKELDIR = 	$(CURDIR)/skel
