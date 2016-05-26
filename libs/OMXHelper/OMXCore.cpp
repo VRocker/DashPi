@@ -806,7 +806,7 @@ OMX_ERRORTYPE OMXCoreComponent::DisableAllPorts()
 	OMX_PORT_PARAM_TYPE ports;
 	OMX_INIT_STRUCTURE(ports);
 
-	for (unsigned int i = 0; i < sizeof(idxTypes); ++i)
+	for (unsigned int i = 0; i < 4; ++i)
 	{
 		omxErr = OMX_GetParameter(m_handle, idxTypes[i], &ports);
 		if (omxErr == OMX_ErrorNone)
