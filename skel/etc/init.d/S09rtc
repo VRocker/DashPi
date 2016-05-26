@@ -6,6 +6,7 @@
 case "$1" in
   start)
 	echo -n "Setting system time: "
+	echo ds1307 0x68 > /sys/class/i2c-adapter/i2c-1/new_device
 	hwclock -s
 	echo "OK"
 	;;
