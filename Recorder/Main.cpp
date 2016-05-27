@@ -4,6 +4,8 @@
 #include <bcm_host.h>
 #include <IL/OMX_Core.h>
 
+#include <sys/stat.h>
+
 #include "../libs/OMXHelper/OMXCore.h"
 #include "../libs/OMXHelper/OMXClock.h"
 #include "../libs/OMXHelper/OMXCamera.h"
@@ -55,17 +57,47 @@ int main()
 
 	char directory[255] = { 0 };
 	time_t startTime;
-	{
-		struct tm* timeinfo;
+	/*{
+		struct tm* timeinfo;*/
 		time(&startTime);
-		timeinfo = localtime(&startTime);
+		/*timeinfo = localtime(&startTime);
 
 		strftime(directory, sizeof(directory), "/recordings/%d-%m-%y %H-%M-%S/", timeinfo);
+	}*/
+
+	{
+		unsigned int index = 0;
+		bool dirFound = false;
+		struct stat sb;
+		while (!dirFound)
+		{
+			sprintf(directory, "/recordings/%u", index);
+
+			if (stat(directory, &sb) == 0 && S_ISDIR(sb.st_mode))
+			{
+				// Directory currently exists, skip it
+				dirFound = false;
+			}
+			else
+			{
+				dirFound = true;
+				break;
+			}
+
+			index++;
+		}
+
+		if (!dirFound)
+		{
+			printf("Failed to find empty directroy for recordings...\n");
+			return 1;
+		}
 	}
+
 	char fileName[255] = { 0 };
 	sprintf(fileName, "%s/00000000-recording.h264", directory);
 
-	char cmd[128] = { 0 };
+	char cmd[255] = { 0 };
 	printf("Creating directory %s...\n", directory);
 	sprintf(cmd, "mkdir -p \"%s\"", directory);
 	system(cmd);
@@ -77,12 +109,17 @@ int main()
 		return 1;
 	}
 
+	printf( "Creating camera component...\n" );
 	OMXCamera* camera = new OMXCamera();
+	printf( "Opening camera...\n" );
 	camera->Open(nullptr);
 
+	printf( "Setting frame info...\n" );
 	camera->SetFrameInfo(1920, 1080, 25);
+	printf( "Setting rotation...\n" );
 	camera->SetRotation(180);
 
+	printf( "Creating encoder component...\n" );
 	OMXVideoEncoder* encoder = new OMXVideoEncoder();
 	encoder->Open();
 
@@ -91,16 +128,20 @@ int main()
 	encoder->SetOutputFormat(OMX_VIDEO_CodingAVC);
 	encoder->SetAVCProfile(OMX_VIDEO_AVCProfileHigh);
 
+	printf( "Creating null_sink component...\n" );
+
 	OMXNull* nullsink = new OMXNull();
 	camera->SetupPreviewTunnel(nullsink, 240);
 	OMXCoreComponent* encodingComponent = encoder->GetComponent();
 	camera->SetupCaptureTunnel(encodingComponent, encodingComponent->GetInputPort());
 
+	printf( "Allocating encodeer buffers...\n" );
 	// Allocate the buffer AFTER setting up the tunnel else bad things ahppen
 	encoder->AllocateBuffers();
 	
 	encoder->Execute();
 	camera->Execute();
+	printf( "Enabling camera capture...\n" );
 	camera->EnableCapture(true);
 
 	OMX_BUFFERHEADERTYPE* buffer = nullptr;
@@ -114,6 +155,8 @@ int main()
 	unsigned int bufferLen = 0;
 	bool bChangeFile = false;
 	time(&startTime);
+
+	printf( "Start time: %lu\n", startTime );
 
 	while (true)
 	{
@@ -193,7 +236,8 @@ int main()
 	camera->StopPreviewTunnel();
 	camera->StopCaptureTunnel();
 
-	fclose(outFile);
+	if ( outFile )
+		fclose(outFile);
 
 	sprintf( cmd, "echo \"%u seconds\n\" > \"%s/length.txt\"", time(0) - startTime, directory);
 	system(cmd);
