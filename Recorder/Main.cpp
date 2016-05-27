@@ -4,6 +4,8 @@
 #include <bcm_host.h>
 #include <IL/OMX_Core.h>
 
+#include <sys/stat.h>
+
 #include "../libs/OMXHelper/OMXCore.h"
 #include "../libs/OMXHelper/OMXClock.h"
 #include "../libs/OMXHelper/OMXCamera.h"
@@ -55,12 +57,41 @@ int main()
 
 	char directory[255] = { 0 };
 	time_t startTime;
-	{
-		struct tm* timeinfo;
+	/*{
+		struct tm* timeinfo;*/
 		time(&startTime);
-		timeinfo = localtime(&startTime);
+		/*timeinfo = localtime(&startTime);
 
 		strftime(directory, sizeof(directory), "/recordings/%d-%m-%y %H-%M-%S/", timeinfo);
+	}*/
+	
+	{
+		unsigned int index = 0;
+		bool dirFound = false;
+		struct stat sb;
+		while (!dirFound)
+		{
+			sprintf(directory, "/recordings/%u", index);
+			
+			if (stat(directory, &sb) == 0 && S_ISDIR(sb.st_mode))
+			{
+				// Directory currently exists, skip it
+				dirFound = false;
+			}
+			else
+			{
+				dirFound = true;
+				break;
+			}
+			
+			index++;
+		}
+		
+		if (!dirFound)
+		{
+			printf("Failed to find empty directroy for recordings...\n");
+			return 1;
+		}
 	}
 	char fileName[255] = { 0 };
 	sprintf(fileName, "%s/00000000-recording.h264", directory);
@@ -195,7 +226,7 @@ int main()
 
 	fclose(outFile);
 
-	sprintf( cmd, "echo \"%u seconds\n\" > \"%s/length.txt\"", time(0) - startTime, directory);
+	sprintf( cmd, "echo \"%ld seconds\n\" > \"%s/length.txt\"", time(0) - startTime, directory);
 	system(cmd);
 	// Create the file list
 	// Place the file list in the same dir as the recordings so we can pass that to ffmpeg
